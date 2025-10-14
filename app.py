@@ -1,21 +1,29 @@
 from fastapi import FastAPI
-from redis import Redis
+from redis import Redis, exceptions
 import os
-import uvicorn
 
 app = FastAPI()
 
-# Optional overrides using environment variables
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+redis = Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    decode_responses=True,
+    socket_connect_timeout=0.2,
+    socket_timeout=0.2,
+)
 
-redis = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 @app.get("/")
 def hello():
-    redis.incr('hits')
-    hits = redis.get('hits').decode('utf-8')
+    try:
+        hits = redis.incr("hits")
+    except exceptions.RedisError:
+        hits = "unavailable"
     return f"Hello! This page has been visited {hits} times."
 
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("APP_PORT", "8000")))
